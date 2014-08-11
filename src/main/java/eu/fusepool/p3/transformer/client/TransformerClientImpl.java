@@ -1,0 +1,186 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package eu.fusepool.p3.transformer.client;
+
+
+import eu.fusepool.p3.transformer.commons.Entity;
+import eu.fusepool.p3.transformer.commons.util.InputStreamEntity;
+import eu.fusepool.p3.vocab.TRANSFORMER;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.StringWriter;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+import javax.activation.MimeType;
+import javax.activation.MimeTypeParseException;
+import org.apache.clerezza.rdf.core.Graph;
+import org.apache.clerezza.rdf.core.Literal;
+import org.apache.clerezza.rdf.core.UriRef;
+import org.apache.clerezza.rdf.core.serializedform.Parser;
+import org.apache.clerezza.rdf.utils.GraphNode;
+import org.apache.commons.io.IOUtils;
+
+/**
+ *
+ * @author Gabor, reto
+ */
+public class TransformerClientImpl implements Transformer {
+
+    public URI uri;
+    final public Set<MimeType> supportedInputFormats;
+    final public Set<MimeType> supportedOutputFormats;
+
+    public TransformerClientImpl(URI _uri) {
+        uri = _uri;
+        supportedInputFormats = new HashSet<>();
+        supportedOutputFormats = new HashSet<>();
+        setMimeTypes();
+    }
+
+    public TransformerClientImpl(String uriString) {
+        try {
+            uri = new URI(uriString);
+            supportedInputFormats = new HashSet<>();
+            supportedOutputFormats = new HashSet<>();
+            setMimeTypes();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("URI syntax error!", e);
+        }
+    }
+
+    private void setMimeTypes() {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) uri.toURL().openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Accept", "text/turtle");
+            
+            final Parser parser = Parser.getInstance();
+            final UriRef transformerRes = new UriRef(uri.toString());
+            final Graph graph = parser.parse(connection.getInputStream(), "text/turtle", transformerRes);
+            final GraphNode transformerNode = new GraphNode(transformerRes, graph);
+            {
+                final Iterator<Literal> sifIter = transformerNode.getLiterals(TRANSFORMER.supportedInputFormat);
+                while (sifIter.hasNext()) {
+                    Literal lit = sifIter.next();
+                    try {
+                        supportedInputFormats.add(new MimeType(lit.getLexicalForm()));
+                    } catch (MimeTypeParseException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+            {
+                final Iterator<Literal> sofIter = transformerNode.getLiterals(TRANSFORMER.supportedOutputFormat);
+                while (sofIter.hasNext()) {
+                    Literal lit = sofIter.next();
+                    try {
+                        supportedOutputFormats.add(new MimeType(lit.getLexicalForm()));
+                    } catch (MimeTypeParseException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot establish connection to " + uri.toString() + " !", e);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    @Override
+    public Entity transform(Entity entity, MimeType... acceptedFormats) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) uri.toURL().openConnection();
+            connection.setRequestMethod("POST");
+            if (acceptedFormats.length > 0) {
+                final StringWriter acceptString = new StringWriter();
+                double q = 1;
+                for (MimeType mimeType : acceptedFormats) {
+                    acceptString.write(mimeType.toString());
+                    acceptString.write("; q=");
+                    acceptString.write(Double.toString(q));
+                    q=q*0.9; 
+                    acceptString.write(", ");
+                }
+                connection.setRequestProperty("Accept", acceptString.toString());
+            }
+            
+            connection.setRequestProperty("charset", "UTF-8");
+            connection.setRequestProperty("Content-Type", entity.getType().toString());
+
+            connection.setDoOutput(true);
+            connection.setUseCaches(false);
+            try (OutputStream out = connection.getOutputStream()) {
+                entity.writeData(out);
+            }
+
+            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            
+            IOUtils.copy(connection.getInputStream(), baos);
+
+            final byte[] bytes = baos.toByteArray();
+            
+            final String resultContentTypeString = connection.getHeaderField("Content-Type");
+            final MimeType resultType = resultContentTypeString != null? 
+                    new MimeType(resultContentTypeString) : new MimeType("application", "octet-stream");
+            return new InputStreamEntity() {
+
+                @Override
+                public MimeType getType() {
+                    return resultType;
+                }
+
+                @Override
+                public InputStream getData() throws IOException {
+                    return new ByteArrayInputStream(bytes);
+                }
+            };
+
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot establish connection to " + uri.toString() + " !", e);
+        } catch (MimeTypeParseException ex) {
+            throw new RuntimeException("Error parsing MediaType returned from Server. ", ex);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    @Override
+    public boolean accepts(MimeType type) {
+        for (MimeType m : supportedInputFormats) {
+            if ((m.match(type)) || m.getPrimaryType().equals("*")
+                || (m.getSubType().equals("*") 
+                    && m.getPrimaryType().equals(type.getPrimaryType()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public Set<MimeType> getSupportedInputFormats() {
+        return supportedInputFormats;
+    }
+
+    @Override
+    public Set<MimeType> getSupportedOutputFormats() {
+        return supportedOutputFormats;
+    }
+
+
+}
