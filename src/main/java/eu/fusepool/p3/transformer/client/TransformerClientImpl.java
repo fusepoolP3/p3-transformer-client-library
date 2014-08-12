@@ -134,6 +134,9 @@ public class TransformerClientImpl implements Transformer {
             }
 
             connection.setRequestProperty("Content-Type", entity.getType().toString());
+            if (entity.getContentLocation() != null) {
+                connection.setRequestProperty("Content-Location", entity.getContentLocation().toString());
+            }
 
             connection.setDoOutput(true);
             connection.setUseCaches(false);
