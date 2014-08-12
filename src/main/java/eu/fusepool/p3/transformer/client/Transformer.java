@@ -21,16 +21,32 @@ import java.util.Set;
 import javax.activation.MimeType;
 
 /**
- *
+ * Represents a Transformer. 
+ * For more information about transformers, see: https://github.com/fusepoolP3/overall-architecture/blob/master/data-transformer-api.md
+ * 
  * @author reto
  */
 public interface Transformer {
     
+    /**
+     * @return The Media Types supported for the entity to be transformed
+     */
     Set<MimeType> getSupportedInputFormats();
 
+    /**
+     * @return The Media types that the transformer can produce as output
+     */
     Set<MimeType> getSupportedOutputFormats();     
 
+    /**
+     * This is a convenience method that checks the supported input formats 
+     * if one of them is same as or more generic than a type specified as argument.
+     * 
+     * @param type the Media Type to check for acceptance
+     * @return true if type can be accepted, false otherwise
+     */
     boolean accepts(MimeType type);
+    
     /**
      * Transforms an entity. This method supports specifying accepted
      * formats.

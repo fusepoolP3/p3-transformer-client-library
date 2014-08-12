@@ -41,14 +41,15 @@ import org.apache.clerezza.rdf.utils.GraphNode;
 import org.apache.commons.io.IOUtils;
 
 /**
- *
+ * An implementation of {@link Transformer} to access a Transformer identified 
+ * by a URI
  * @author Gabor, reto
  */
 public class TransformerClientImpl implements Transformer {
 
-    public URI uri;
-    final public Set<MimeType> supportedInputFormats;
-    final public Set<MimeType> supportedOutputFormats;
+    final private URI uri;
+    final private Set<MimeType> supportedInputFormats;
+    final private Set<MimeType> supportedOutputFormats;
 
     public TransformerClientImpl(URI _uri) {
         uri = _uri;
