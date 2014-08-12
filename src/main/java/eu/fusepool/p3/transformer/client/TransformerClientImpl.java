@@ -15,7 +15,6 @@
  */
 package eu.fusepool.p3.transformer.client;
 
-
 import eu.fusepool.p3.transformer.commons.Entity;
 import eu.fusepool.p3.transformer.commons.util.InputStreamEntity;
 import eu.fusepool.p3.vocab.TRANSFORMER;
@@ -28,6 +27,7 @@ import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -74,7 +74,7 @@ public class TransformerClientImpl implements Transformer {
             connection = (HttpURLConnection) uri.toURL().openConnection();
             connection.setRequestMethod("GET");
             connection.setRequestProperty("Accept", "text/turtle");
-            
+
             final Parser parser = Parser.getInstance();
             final UriRef transformerRes = new UriRef(uri.toString());
             final Graph graph = parser.parse(connection.getInputStream(), "text/turtle", transformerRes);
@@ -114,8 +114,10 @@ public class TransformerClientImpl implements Transformer {
     public Entity transform(Entity entity, MimeType... acceptedFormats) {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) uri.toURL().openConnection();
+            final URL transfromerUrl = uri.toURL();
+            connection = (HttpURLConnection) transfromerUrl.openConnection();
             connection.setRequestMethod("POST");
+            String acceptHeaderValue = null;
             if (acceptedFormats.length > 0) {
                 final StringWriter acceptString = new StringWriter();
                 double q = 1;
@@ -123,13 +125,13 @@ public class TransformerClientImpl implements Transformer {
                     acceptString.write(mimeType.toString());
                     acceptString.write("; q=");
                     acceptString.write(Double.toString(q));
-                    q=q*0.9; 
+                    q = q * 0.9;
                     acceptString.write(", ");
                 }
-                connection.setRequestProperty("Accept", acceptString.toString());
+                acceptHeaderValue = acceptString.toString();
+                connection.setRequestProperty("Accept", acceptHeaderValue);
             }
-            
-            connection.setRequestProperty("charset", "UTF-8");
+
             connection.setRequestProperty("Content-Type", entity.getType().toString());
 
             connection.setDoOutput(true);
@@ -137,28 +139,18 @@ public class TransformerClientImpl implements Transformer {
             try (OutputStream out = connection.getOutputStream()) {
                 entity.writeData(out);
             }
-
-            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            
-            IOUtils.copy(connection.getInputStream(), baos);
-
-            final byte[] bytes = baos.toByteArray();
-            
-            final String resultContentTypeString = connection.getHeaderField("Content-Type");
-            final MimeType resultType = resultContentTypeString != null? 
-                    new MimeType(resultContentTypeString) : new MimeType("application", "octet-stream");
-            return new InputStreamEntity() {
-
-                @Override
-                public MimeType getType() {
-                    return resultType;
+            final int responseCode = connection.getResponseCode();
+            if (responseCode == 200) {
+                return getResponseEntity(connection);
+            }
+            if (responseCode == 202) {
+                final String location = connection.getHeaderField("Location");
+                if (location == null) {
+                    throw new RuntimeException("No location header in firts 202 response");
                 }
-
-                @Override
-                public InputStream getData() throws IOException {
-                    return new ByteArrayInputStream(bytes);
-                }
-            };
+                return getAsyncResponseEntity(new URL(transfromerUrl, location), acceptHeaderValue);
+            }
+            throw new RuntimeException("Unexpected response code: " + responseCode);
 
         } catch (IOException e) {
             throw new RuntimeException("Cannot establish connection to " + uri.toString() + " !", e);
@@ -175,7 +167,7 @@ public class TransformerClientImpl implements Transformer {
     public boolean accepts(MimeType type) {
         for (MimeType m : supportedInputFormats) {
             if ((m.match(type)) || m.getPrimaryType().equals("*")
-                || (m.getSubType().equals("*") 
+                    || (m.getSubType().equals("*")
                     && m.getPrimaryType().equals(type.getPrimaryType()))) {
                 return true;
             }
@@ -193,5 +185,57 @@ public class TransformerClientImpl implements Transformer {
         return supportedOutputFormats;
     }
 
+    private Entity getResponseEntity(HttpURLConnection connection) throws IOException, MimeTypeParseException {
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        IOUtils.copy(connection.getInputStream(), baos);
+
+        final byte[] bytes = baos.toByteArray();
+
+        final String resultContentTypeString = connection.getHeaderField("Content-Type");
+        final MimeType resultType = resultContentTypeString != null
+                ? new MimeType(resultContentTypeString) : new MimeType("application", "octet-stream");
+        return new InputStreamEntity() {
+
+            @Override
+            public MimeType getType() {
+                return resultType;
+            }
+
+            @Override
+            public InputStream getData() throws IOException {
+                return new ByteArrayInputStream(bytes);
+            }
+        };
+    }
+
+    private Entity getAsyncResponseEntity(URL url, String acceptHeaderValue) {
+        //recursive function would be nicer, but this saves memory
+        while (true) {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) url.openConnection();
+                if (acceptHeaderValue != null) {
+                    connection.setRequestProperty("Accept", acceptHeaderValue);
+                }
+
+                final int responseCode = connection.getResponseCode();
+                if (responseCode == 200) {
+                    return getResponseEntity(connection);
+                }
+                if (responseCode != 202) {
+                    throw new RuntimeException("Unexpected response code: " + responseCode);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Cannot establish connection to " + uri.toString() + " !", e);
+            } catch (MimeTypeParseException ex) {
+                throw new RuntimeException("Error parsing MediaType returned from Server. ", ex);
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        }
+    }
 
 }
