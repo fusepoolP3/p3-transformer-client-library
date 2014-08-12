@@ -20,7 +20,6 @@ import eu.fusepool.p3.transformer.client.TransformerClientImpl;
 import eu.fusepool.p3.transformer.commons.Entity;
 import eu.fusepool.p3.transformer.commons.util.WritingEntity;
 import eu.fusepool.transformer.sample.LongRunningTransformer;
-import eu.fusepool.transformer.sample.SimpleTransformer;
 import eu.fusepool.transformer.server.TransformerServer;
 import java.io.IOException;
 import java.io.OutputStream;
