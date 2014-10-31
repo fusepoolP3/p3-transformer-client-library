@@ -215,6 +215,7 @@ public class TransformerClientImpl implements Transformer {
 
     private Entity getAsyncResponseEntity(URL url, String acceptHeaderValue) {
         //recursive function would be nicer, but this saves memory
+        int counter = 0;
         while (true) {
             HttpURLConnection connection = null;
             try {
@@ -238,6 +239,13 @@ public class TransformerClientImpl implements Transformer {
                 if (connection != null) {
                     connection.disconnect();
                 }
+            }
+            //Check every half second for the first 5 seconds, Evrey 10 second for the following 10 minutes, every two minutes afterwards
+            final int interval = counter < 10 ? 500 : counter < 70? 10000 : 120000;
+            try {
+                Thread.sleep(interval);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
     }
