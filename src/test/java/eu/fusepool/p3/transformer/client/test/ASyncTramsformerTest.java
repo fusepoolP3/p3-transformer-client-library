@@ -15,6 +15,7 @@
  */
 package eu.fusepool.p3.transformer.client.test;
 
+import eu.fusepool.p3.transformer.HttpRequestEntity;
 import eu.fusepool.p3.transformer.client.Transformer;
 import eu.fusepool.p3.transformer.client.TransformerClientImpl;
 import eu.fusepool.p3.transformer.commons.Entity;
@@ -29,6 +30,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.activation.MimeType;
 import javax.activation.MimeTypeParseException;
+import org.apache.clerezza.rdf.core.TripleCollection;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,7 +48,19 @@ public class ASyncTramsformerTest {
         final int port = findFreePort();
         baseURI = "http://localhost:"+port+"/";
         TransformerServer server = new TransformerServer(port);
-        server.start(new LongRunningTransformer());
+        server.start(new LongRunningTransformer() {
+
+            @Override
+            protected TripleCollection generateRdf(HttpRequestEntity entity) throws IOException {
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+                return super.generateRdf(entity); 
+            }
+            
+        });
     }
 
     @Test
