@@ -242,6 +242,7 @@ public class TransformerClientImpl implements Transformer {
             }
             //Check every half second for the first 5 seconds, Evrey 10 second for the following 10 minutes, every two minutes afterwards
             final int interval = counter < 10 ? 500 : counter < 70? 10000 : 120000;
+            counter++;
             try {
                 Thread.sleep(interval);
             } catch (InterruptedException e) {
