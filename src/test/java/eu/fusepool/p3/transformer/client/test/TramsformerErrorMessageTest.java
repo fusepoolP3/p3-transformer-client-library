@@ -16,19 +16,24 @@
 package eu.fusepool.p3.transformer.client.test;
 
 import eu.fusepool.p3.transformer.HttpRequestEntity;
-import eu.fusepool.p3.transformer.SyncTransformer;
+import eu.fusepool.p3.transformer.TransformerException;
 import eu.fusepool.p3.transformer.client.Transformer;
+import eu.fusepool.p3.transformer.client.UnexpectedResponseException;
 import eu.fusepool.p3.transformer.client.TransformerClientImpl;
 import eu.fusepool.p3.transformer.commons.Entity;
 import eu.fusepool.p3.transformer.commons.util.WritingEntity;
+import eu.fusepool.p3.transformer.sample.SimpleTransformer;
 import eu.fusepool.p3.transformer.server.TransformerServer;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ServerSocket;
-import java.util.Collections;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.activation.MimeType;
 import javax.activation.MimeTypeParseException;
+import org.apache.clerezza.rdf.core.TripleCollection;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -37,63 +42,39 @@ import org.junit.Test;
  *
  * @author Reto
  */
-public class ParametersForwardingTest {
+public class TramsformerErrorMessageTest {
 
     String baseURI;
     
+    final String responseBody = "Seerver too lazy to process";
+    
     @Before
     public void setUp() throws Exception {
-        
-        
-    }
-
-    @Test
-    public synchronized void parameterTest() throws Exception {
         final int port = findFreePort();
         baseURI = "http://localhost:"+port+"/";
         TransformerServer server = new TransformerServer(port, false);
-        //enclosures Java Style
-        final String[] requestUri = new String[1];
-        final String[] queryString = new String[1];
-        server.start(new SyncTransformer() {
+        server.start(new SimpleTransformer() {
 
             @Override
-            public Entity transform(HttpRequestEntity entity) throws IOException {
-                requestUri[0] = entity.getRequest().getRequestURI();
-                queryString[0] = entity.getRequest().getQueryString();
-                return entity;
+            protected TripleCollection generateRdf(HttpRequestEntity entity) throws IOException {
+                throw new TransformerException(500, responseBody);
             }
-
-            @Override
-            public boolean isLongRunning() {
-                return false;
-            }
-
-            @Override
-            public Set<MimeType> getSupportedInputFormats() {
-                try {
-                    return Collections.singleton(new MimeType("fancy", "type"));
-                } catch (MimeTypeParseException ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
-
-            @Override
-            public Set<MimeType> getSupportedOutputFormats() {
-                try {
-                    return Collections.singleton(new MimeType("fancy", "type"));
-                } catch (MimeTypeParseException ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
+            
         });
-        Transformer t = new TransformerClientImpl(baseURI+"test?foo=bar");
-        t.transform(new WritingEntity() {
+    }
 
+    
+    
+    @Test
+    public void transform() throws MimeTypeParseException, IOException {
+        Transformer t = new TransformerClientImpl(baseURI);
+        boolean gotRightException = false;
+        final WritingEntity entity = new WritingEntity() {
+            
             @Override
             public MimeType getType() {
                 try {
-                    return new MimeType("fancy/type");
+                    return new MimeType("text/plain");
                 } catch (MimeTypeParseException ex) {
                     throw new RuntimeException(ex);
                 }
@@ -103,9 +84,18 @@ public class ParametersForwardingTest {
             public void writeData(OutputStream out) throws IOException {
                 out.write("Hello".getBytes("utf-8"));
             }
-        }, new MimeType("fancy/type"));
-        Assert.assertTrue("Got request uri path", requestUri[0].endsWith("test"));
-        Assert.assertTrue("Got query string", queryString[0].endsWith("foo=bar"));
+        };
+        try {
+            Entity result = t.transform(entity, new MimeType("text/turtle"));
+        } catch (UnexpectedResponseException ex) {
+            gotRightException = true;
+            Entity responseEntity = ex.getResponseEntity();
+            Assert.assertNotNull(responseEntity);
+            ByteArrayOutputStream responseWriter = new ByteArrayOutputStream();
+            responseEntity.writeData(responseWriter);
+            Assert.assertArrayEquals(responseBody.getBytes("utf-8"), responseWriter.toByteArray());            
+        }
+        Assert.assertTrue("Didn't get TransformerClientException", gotRightException);
     }
     
 

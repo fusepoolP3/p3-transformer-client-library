@@ -150,11 +150,11 @@ public class TransformerClientImpl implements Transformer {
             if ((responseCode == 202) || (responseCode == 201)) {
                 final String location = connection.getHeaderField("Location");
                 if (location == null) {
-                    throw new RuntimeException("No location header in firts 202 response");
+                    throw new RuntimeException("No location header in first 202 response");
                 }
                 return getAsyncResponseEntity(new URL(transfromerUrl, location), acceptHeaderValue);
-            }
-            throw new RuntimeException("Unexpected response code: " + responseCode);
+            } 
+            throw new UnexpectedResponseException(responseCode, getResponseEntity(connection));
 
         } catch (IOException e) {
             throw new RuntimeException("Cannot establish connection to " + uri.toString() + " !", e);
@@ -191,8 +191,11 @@ public class TransformerClientImpl implements Transformer {
 
     private Entity getResponseEntity(HttpURLConnection connection) throws IOException, MimeTypeParseException {
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-        IOUtils.copy(connection.getInputStream(), baos);
+        if (connection.getResponseCode() < 400) {
+            IOUtils.copy(connection.getInputStream(), baos);
+        } else {
+            IOUtils.copy(connection.getErrorStream(), baos);
+        }
 
         final byte[] bytes = baos.toByteArray();
 
