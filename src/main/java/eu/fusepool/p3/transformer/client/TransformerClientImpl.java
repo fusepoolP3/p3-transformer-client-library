@@ -147,7 +147,7 @@ public class TransformerClientImpl implements Transformer {
             if (responseCode == 200) {
                 return getResponseEntity(connection);
             }
-            if (responseCode == 202) {
+            if ((responseCode == 202) || (responseCode == 201)) {
                 final String location = connection.getHeaderField("Location");
                 if (location == null) {
                     throw new RuntimeException("No location header in firts 202 response");
