@@ -28,12 +28,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ServerSocket;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.activation.MimeType;
 import javax.activation.MimeTypeParseException;
-import org.apache.clerezza.rdf.core.TripleCollection;
+import org.apache.clerezza.commons.rdf.Graph;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -56,7 +53,7 @@ public class TramsformerErrorMessageTest {
         server.start(new SimpleTransformer() {
 
             @Override
-            protected TripleCollection generateRdf(HttpRequestEntity entity) throws IOException {
+            protected Graph generateRdf(HttpRequestEntity entity) throws IOException {
                 throw new TransformerException(500, responseBody);
             }
             
