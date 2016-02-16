@@ -160,10 +160,12 @@ public class TransformerClientImpl implements Transformer {
             throw new RuntimeException("Cannot establish connection to " + uri.toString() + " !", e);
         } catch (MimeTypeParseException ex) {
             throw new RuntimeException("Error parsing MediaType returned from Server. ", ex);
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
+// connection.disconnect should only be called if requests to this host are unlikely
+// as it closes the underlying socket and prevents pooling of connections
+//        } finally {
+//            if (connection != null) {
+//                connection.disconnect();
+//            }
         }
     }
 
