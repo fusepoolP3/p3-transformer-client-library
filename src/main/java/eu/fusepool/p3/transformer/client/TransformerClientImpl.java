@@ -33,9 +33,9 @@ import java.util.Iterator;
 import java.util.Set;
 import javax.activation.MimeType;
 import javax.activation.MimeTypeParseException;
-import org.apache.clerezza.rdf.core.Graph;
-import org.apache.clerezza.rdf.core.Literal;
-import org.apache.clerezza.rdf.core.UriRef;
+import org.apache.clerezza.commons.rdf.ImmutableGraph;
+import org.apache.clerezza.commons.rdf.Literal;
+import org.apache.clerezza.commons.rdf.IRI;
 import org.apache.clerezza.rdf.core.serializedform.Parser;
 import org.apache.clerezza.rdf.utils.GraphNode;
 import org.apache.commons.io.IOUtils;
@@ -77,8 +77,8 @@ public class TransformerClientImpl implements Transformer {
             connection.setRequestProperty("Accept", "text/turtle");
 
             final Parser parser = Parser.getInstance();
-            final UriRef transformerRes = new UriRef(uri.toString());
-            final Graph graph = parser.parse(connection.getInputStream(), "text/turtle", transformerRes);
+            final IRI transformerRes = new IRI(uri.toString());
+            final ImmutableGraph graph = parser.parse(connection.getInputStream(), "text/turtle", transformerRes);
             final GraphNode transformerNode = new GraphNode(transformerRes, graph);
             {
                 final Iterator<Literal> sifIter = transformerNode.getLiterals(TRANSFORMER.supportedInputFormat);

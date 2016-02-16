@@ -30,7 +30,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.activation.MimeType;
 import javax.activation.MimeTypeParseException;
-import org.apache.clerezza.rdf.core.TripleCollection;
+import org.apache.clerezza.commons.rdf.Graph;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,7 +51,7 @@ public class ASyncTramsformerTest {
         server.start(new LongRunningTransformer() {
 
             @Override
-            protected TripleCollection generateRdf(HttpRequestEntity entity) throws IOException {
+            protected Graph generateRdf(HttpRequestEntity entity) throws IOException {
                 try {
                     Thread.sleep(10000);
                 } catch (InterruptedException ex) {
