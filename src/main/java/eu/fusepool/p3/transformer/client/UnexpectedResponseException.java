@@ -30,7 +30,7 @@ public class UnexpectedResponseException extends RuntimeException {
      * Constructs an instance of <code>TransfomerClientException</code> with the
      * specified detail message.
      *
-     * @param msg the detail message.
+     * @param responseCode the HTTP status code of the response
      * @param entity the response entity
      */
     public UnexpectedResponseException(int responseCode, Entity entity) {
